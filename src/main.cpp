@@ -155,13 +155,6 @@ static const uint8_t kPinsLevel = PINS_LEVEL;
 static const unsigned long kPinsTogglePulseMs = 200;
 #endif
 
-#if defined(PINS_TOGGLE)
-#if !defined(TEST_BUTTON_PIN)
-#error "Define TEST_BUTTON_PIN in platformio.ini build_flags."
-#endif
-static const uint8_t kTestButtonPin = TEST_BUTTON_PIN;
-#endif
-
 static void AddStep(MorseSequence& seq, uint8_t level, uint16_t duration) {
   if (seq.len >= sizeof(seq.durations) / sizeof(seq.durations[0])) {
     return;
