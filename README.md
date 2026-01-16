@@ -55,7 +55,7 @@ Connected: GPIO35 (2)
 The number in parentheses increments only on reconnects to the same pin.
 
 Pin mapping is configured in `platformio.ini` only (no edits in `src/main.cpp`).  
-Uncomment and set the pins in the env you are using:
+Set the pins in the env you are using:
 ```ini
 build_flags =
   -DBOARD_ESP32S3
@@ -73,7 +73,7 @@ If `-DTEST_BUTTON` is enabled in Morse mode:
 - A button press forces `TEST_LED_PIN` to blink at 5 Hz.
 - Releasing returns the pin to Morse output.
 
-Override example:
+Pin configuration example:
 ```ini
 build_flags =
   -DBOARD_ESP32S3
@@ -93,5 +93,4 @@ Each env defines the board and USB-CDC settings as needed.
 
 ## Notes
 
-- The GPIO lists in `src/main.cpp` are safe defaults; adjust for your specific module if needed.
 - Avoid flash pins, strapping pins, and input-only pins unless you know the risks.
