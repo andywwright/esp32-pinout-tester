@@ -243,7 +243,7 @@ void loop() {
     }
   }
 
-  if (detected >= 0 && detected != last_detected) {
+  if (detected >= 0) {
     bool ok = true;
     for (int pass = 0; pass < 3; pass++) {
       if (!detect_edges(detected, kConfirmWindowMs)) {
@@ -275,6 +275,10 @@ void loop() {
     } else {
       blink_morse('O', true);
     }
+  } else if (last_detected >= 0) {
+    blink_morse('O', true);
+    last_detected = -1;
+    repeat_count = 0;
   }
   return;
 #endif
