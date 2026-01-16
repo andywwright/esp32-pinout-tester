@@ -18,7 +18,7 @@ static const uint8_t kGpios[] = {
     4, 5, 6, 7, 8, 9, 10, 11,
     12, 13, 14, 15, 16, 18,
     21,
-    35, 36, 37, 38, 39, 40, 41, 42, 43, 44
+    35, 36, 37, 38, 39, 40, 41, 42
 };
 #else
 #error "Define a BOARD_* build flag to select the GPIO list."
@@ -29,6 +29,7 @@ static const unsigned long kDotMs = kDashMs / 3;
 static const unsigned long kIntraElementGapMs = kDotMs;
 static const unsigned long kInterLetterGapMs = 3 * kDotMs;
 static const unsigned long kInterWordGapMs = 7 * kDotMs;
+static const unsigned long kErrorLogRateMs = 1000;
 
 static const char* MorseForChar(char c) {
   switch (c) {
@@ -84,10 +85,24 @@ struct PinState {
   unsigned long next_ms;
 };
 
+static bool IsValidOutputPin(uint8_t pin) {
+  return digitalPinCanOutput(pin);
+}
+
+static void LogInvalidPin(uint8_t pin) {
+  static unsigned long last_log_ms = 0;
+  unsigned long now = millis();
+  if (now - last_log_ms >= kErrorLogRateMs) {
+    Serial.print("Skipping invalid output pin: GPIO");
+    Serial.println(pin);
+    last_log_ms = now;
+  }
+}
+
 #if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
 static const uint8_t kUartTestInPin = 44;
-static const unsigned long kScanSettleMs = (kDashMs / 50) ? (kDashMs / 50) : 1;
-static const unsigned long kScanHoldMs = (kDashMs / 100) ? (kDashMs / 100) : 1;
+static const unsigned long kScanSettleMs = kDotMs ? kDotMs : 1;
+static const unsigned long kScanHoldMs = kDotMs ? kDotMs : 1;
 #endif
 
 #if defined(BOARD_ESP32S3) && defined(TEST_MODE)
@@ -138,13 +153,18 @@ static void BuildPinSequence(MorseSequence& seq, uint8_t pin) {
 }
 
 void setup() {
+  Serial.begin(115200);
   const size_t count = sizeof(kGpios) / sizeof(kGpios[0]);
   for (size_t i = 0; i < count; i++) {
+    if (!IsValidOutputPin(kGpios[i])) {
+      LogInvalidPin(kGpios[i]);
+      continue;
+    }
     pinMode(kGpios[i], OUTPUT);
     digitalWrite(kGpios[i], LOW);
   }
 #if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
-  Serial.begin(115200);
+  Serial.println("UART test mode active");
   pinMode(kUartTestInPin, INPUT_PULLDOWN);
 #endif
 #if defined(BOARD_ESP32S3) && defined(TEST_MODE)
@@ -159,9 +179,15 @@ void loop() {
   int detected = -1;
 
   for (size_t i = 0; i < sizeof(kGpios) / sizeof(kGpios[0]); i++) {
-    digitalWrite(kGpios[i], LOW);
+    if (IsValidOutputPin(kGpios[i])) {
+      digitalWrite(kGpios[i], LOW);
+    }
   }
   for (size_t i = 0; i < sizeof(kGpios) / sizeof(kGpios[0]); i++) {
+    if (!IsValidOutputPin(kGpios[i])) {
+      LogInvalidPin(kGpios[i]);
+      continue;
+    }
     digitalWrite(kGpios[i], HIGH);
     delay(kScanSettleMs);
     if (digitalRead(kUartTestInPin) == HIGH) {
@@ -221,7 +247,11 @@ void loop() {
 #endif
           true
       ) {
+        if (!IsValidOutputPin(states[i].pin)) {
+          LogInvalidPin(states[i].pin);
+        } else {
         digitalWrite(states[i].pin, sequences[i].levels[states[i].idx]);
+        }
       }
       states[i].next_ms = now + sequences[i].durations[states[i].idx];
     }
