@@ -106,16 +106,26 @@ static void LogInvalidPin(uint8_t pin) {
 }
 
 #if !defined(MODE_MORSE)
+#if !defined(SENSE_IN_PIN)
 #if defined(BOARD_ESP32S3)
-static const uint8_t kSenseInPin = 44;
-static const uint8_t kStatusLedPin = 40;
+#define SENSE_IN_PIN 44
 #elif defined(BOARD_D1MINI_ESP32)
-static const uint8_t kSenseInPin = 3; // U0RXD
-static const uint8_t kStatusLedPin = 2; // On-board LED on many D1 mini ESP32s.
+#define SENSE_IN_PIN 3
 #else
-static const uint8_t kSenseInPin = 3;
-static const uint8_t kStatusLedPin = 2;
+#define SENSE_IN_PIN 3
 #endif
+#endif
+#if !defined(STATUS_LED_PIN)
+#if defined(BOARD_ESP32S3)
+#define STATUS_LED_PIN 40
+#elif defined(BOARD_D1MINI_ESP32)
+#define STATUS_LED_PIN 2
+#else
+#define STATUS_LED_PIN 2
+#endif
+#endif
+static const uint8_t kSenseInPin = SENSE_IN_PIN;
+static const uint8_t kStatusLedPin = STATUS_LED_PIN;
 static const uint32_t kTestToneHz = 1000;
 static const unsigned long kDetectWindowMs = 25;
 static const unsigned long kConfirmWindowMs = 60;
@@ -124,9 +134,27 @@ static const uint8_t kPwmChannel = 0;
 static const uint8_t kPwmResolutionBits = 8;
 #endif
 
-#if defined(BOARD_ESP32S3) && defined(TEST_MODE) && defined(MODE_MORSE)
-static const uint8_t kTestButtonPin = 17;
-static const uint8_t kTestLedPin = 40;
+#if defined(MODE_MORSE) && defined(TEST_MODE)
+#if !defined(TEST_BUTTON_PIN)
+#if defined(BOARD_ESP32S3)
+#define TEST_BUTTON_PIN 17
+#elif defined(BOARD_D1MINI_ESP32)
+#define TEST_BUTTON_PIN 4
+#else
+#define TEST_BUTTON_PIN 4
+#endif
+#endif
+#if !defined(TEST_LED_PIN)
+#if defined(BOARD_ESP32S3)
+#define TEST_LED_PIN 40
+#elif defined(BOARD_D1MINI_ESP32)
+#define TEST_LED_PIN 2
+#else
+#define TEST_LED_PIN 2
+#endif
+#endif
+static const uint8_t kTestButtonPin = TEST_BUTTON_PIN;
+static const uint8_t kTestLedPin = TEST_LED_PIN;
 static const unsigned long kTestBlinkMs = 100;
 static unsigned long g_test_next_ms = 0;
 static bool g_test_level = false;
@@ -192,7 +220,7 @@ void setup() {
   pinMode(kStatusLedPin, OUTPUT);
   digitalWrite(kStatusLedPin, LOW);
 #endif
-#if defined(BOARD_ESP32S3) && defined(TEST_MODE) && defined(MODE_MORSE)
+#if defined(MODE_MORSE) && defined(TEST_MODE)
   pinMode(kTestButtonPin, INPUT_PULLUP);
   pinMode(kTestLedPin, OUTPUT);
 #endif
@@ -315,7 +343,7 @@ void loop() {
   }
 
   unsigned long now_ms = millis();
-#if defined(BOARD_ESP32S3) && defined(TEST_MODE)
+#if defined(MODE_MORSE) && defined(TEST_MODE)
   const bool test_pressed = digitalRead(kTestButtonPin) == LOW;
   if (test_pressed) {
     if (static_cast<long>(now_ms - g_test_next_ms) >= 0) {
@@ -343,7 +371,7 @@ void loop() {
       states[i].next_ms = now_ms + sequences[i].durations[states[i].idx];
     }
   }
-#if defined(BOARD_ESP32S3) && defined(TEST_MODE)
+#if defined(MODE_MORSE) && defined(TEST_MODE)
   if (!test_pressed) {
     for (size_t i = 0; i < count; i++) {
       if (states[i].pin == kTestLedPin) {
