@@ -24,7 +24,7 @@ static const uint8_t kGpios[] = {
 #error "Define a BOARD_* build flag to select the GPIO list."
 #endif
 
-#if defined(MODE_MORSE)
+#if defined(MORSE)
 static const unsigned long kDashMs = 500;
 #else
 static const unsigned long kDashMs = 100;
@@ -105,7 +105,7 @@ static void LogInvalidPin(uint8_t pin) {
   }
 }
 
-#if !defined(MODE_MORSE)
+#if !defined(MORSE)
 #if !defined(SENSE_IN_PIN)
 #if defined(BOARD_ESP32S3)
 #define SENSE_IN_PIN 44
@@ -134,7 +134,7 @@ static const uint8_t kPwmChannel = 0;
 static const uint8_t kPwmResolutionBits = 8;
 #endif
 
-#if defined(MODE_MORSE) && defined(TEST_MODE)
+#if defined(MORSE) && defined(TEST_BUTTON)
 #if !defined(TEST_BUTTON_PIN)
 #if defined(BOARD_ESP32S3)
 #define TEST_BUTTON_PIN 17
@@ -212,7 +212,7 @@ void setup() {
     pinMode(kGpios[i], OUTPUT);
     digitalWrite(kGpios[i], LOW);
   }
-#if !defined(MODE_MORSE)
+#if !defined(MORSE)
 #if defined(BOARD_ESP32S3)
   Serial.println("USB CDC test mode active");
 #endif
@@ -220,14 +220,14 @@ void setup() {
   pinMode(kStatusLedPin, OUTPUT);
   digitalWrite(kStatusLedPin, LOW);
 #endif
-#if defined(MODE_MORSE) && defined(TEST_MODE)
+#if defined(MORSE) && defined(TEST_BUTTON)
   pinMode(kTestButtonPin, INPUT_PULLUP);
   pinMode(kTestLedPin, OUTPUT);
 #endif
 }
 
 void loop() {
-#if !defined(MODE_MORSE)
+#if !defined(MORSE)
   static int last_pin = -1;
   static uint16_t last_count = 0;
   static bool connected = false;
@@ -324,7 +324,7 @@ void loop() {
   }
   return;
 #endif
-#if defined(MODE_MORSE)
+#if defined(MORSE)
   static bool initialized = false;
   static MorseSequence sequences[sizeof(kGpios) / sizeof(kGpios[0])];
   static PinState states[sizeof(kGpios) / sizeof(kGpios[0])];
@@ -343,7 +343,7 @@ void loop() {
   }
 
   unsigned long now_ms = millis();
-#if defined(MODE_MORSE) && defined(TEST_MODE)
+#if defined(MORSE) && defined(TEST_BUTTON)
   const bool test_pressed = digitalRead(kTestButtonPin) == LOW;
   if (test_pressed) {
     if (static_cast<long>(now_ms - g_test_next_ms) >= 0) {
@@ -357,7 +357,7 @@ void loop() {
     if (static_cast<long>(now_ms - states[i].next_ms) >= 0) {
       states[i].idx = static_cast<uint8_t>((states[i].idx + 1) % sequences[i].len);
       if (
-#if defined(MODE_MORSE) && defined(TEST_MODE)
+#if defined(MORSE) && defined(TEST_BUTTON)
           !(test_pressed && states[i].pin == kTestLedPin) &&
 #endif
           true
@@ -371,7 +371,7 @@ void loop() {
       states[i].next_ms = now_ms + sequences[i].durations[states[i].idx];
     }
   }
-#if defined(MODE_MORSE) && defined(TEST_MODE)
+#if defined(MORSE) && defined(TEST_BUTTON)
   if (!test_pressed) {
     for (size_t i = 0; i < count2; i++) {
       if (states[i].pin == kTestLedPin) {
