@@ -84,10 +84,15 @@ struct PinState {
   unsigned long next_ms;
 };
 
+#if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
+static const uint8_t kUartTestInPin = 44;
+static const unsigned long kScanSettleMs = (kDashMs / 50) ? (kDashMs / 50) : 1;
+static const unsigned long kScanHoldMs = (kDashMs / 100) ? (kDashMs / 100) : 1;
+#endif
+
 #if defined(BOARD_ESP32S3) && defined(TEST_MODE)
 static const uint8_t kTestButtonPin = 17;
-// static const uint8_t kTestLedPin = 40;
-static const uint8_t kTestLedPin = 44;
+static const uint8_t kTestLedPin = 40;
 static const unsigned long kTestBlinkMs = 100;
 static unsigned long g_test_next_ms = 0;
 static bool g_test_level = false;
@@ -138,6 +143,10 @@ void setup() {
     pinMode(kGpios[i], OUTPUT);
     digitalWrite(kGpios[i], LOW);
   }
+#if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
+  Serial.begin(115200);
+  pinMode(kUartTestInPin, INPUT_PULLDOWN);
+#endif
 #if defined(BOARD_ESP32S3) && defined(TEST_MODE)
   pinMode(kTestButtonPin, INPUT_PULLUP);
   pinMode(kTestLedPin, OUTPUT);
@@ -145,6 +154,36 @@ void setup() {
 }
 
 void loop() {
+#if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
+  static int last_detected = -1;
+  int detected = -1;
+
+  for (size_t i = 0; i < sizeof(kGpios) / sizeof(kGpios[0]); i++) {
+    digitalWrite(kGpios[i], LOW);
+  }
+  for (size_t i = 0; i < sizeof(kGpios) / sizeof(kGpios[0]); i++) {
+    digitalWrite(kGpios[i], HIGH);
+    delay(kScanSettleMs);
+    if (digitalRead(kUartTestInPin) == HIGH) {
+      detected = kGpios[i];
+      digitalWrite(kGpios[i], LOW);
+      break;
+    }
+    delay(kScanHoldMs);
+    digitalWrite(kGpios[i], LOW);
+  }
+
+  if (detected != last_detected) {
+    if (detected >= 0) {
+      Serial.print("Connected: GPIO");
+      Serial.println(detected);
+    } else {
+      Serial.println("Connected: none");
+    }
+    last_detected = detected;
+  }
+  return;
+#endif
   static bool initialized = false;
   static MorseSequence sequences[sizeof(kGpios) / sizeof(kGpios[0])];
   static PinState states[sizeof(kGpios) / sizeof(kGpios[0])];

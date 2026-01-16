@@ -2,5 +2,7 @@
 .pioenvs/
 .piolibdeps/
 .pio
-\.vscode/
+.vscode/
 *.DS_Store
+d1_mini_esp32_-_pinout.pdf
+d1_mini_esp32_pinout.jpg
