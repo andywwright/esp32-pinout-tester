@@ -103,8 +103,11 @@ static void LogInvalidPin(uint8_t pin) {
 
 #if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
 static const uint8_t kUartTestInPin = 44;
-static const unsigned long kScanSettleMs = kDotMs ? kDotMs : 1;
-static const unsigned long kScanHoldMs = kDotMs ? kDotMs : 1;
+static const uint32_t kTestToneHz = 1000;
+static const unsigned long kDetectWindowMs = 25;
+static const uint16_t kMinEdges = 30;
+static const uint8_t kPwmChannel = 0;
+static const uint8_t kPwmResolutionBits = 8;
 #endif
 
 #if defined(BOARD_ESP32S3) && defined(TEST_MODE)
@@ -171,7 +174,7 @@ void setup() {
 #if defined(BOARD_ESP32S3)
   Serial.println("USB CDC test mode active");
 #endif
-  pinMode(kUartTestInPin, INPUT_PULLDOWN);
+  pinMode(kUartTestInPin, INPUT);
 #endif
 #if defined(BOARD_ESP32S3) && defined(TEST_MODE)
   pinMode(kTestButtonPin, INPUT_PULLUP);
@@ -183,32 +186,35 @@ void loop() {
 #if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
   static int last_detected = -1;
   int detected = -1;
-  unsigned long now = millis();
+  const size_t count = sizeof(kGpios) / sizeof(kGpios[0]);
 
-  for (size_t i = 0; i < sizeof(kGpios) / sizeof(kGpios[0]); i++) {
-    if (IsValidOutputPin(kGpios[i])) {
-      digitalWrite(kGpios[i], LOW);
-    }
-  }
-  for (size_t i = 0; i < sizeof(kGpios) / sizeof(kGpios[0]); i++) {
+  for (size_t i = 0; i < count; i++) {
     if (!IsValidOutputPin(kGpios[i])) {
       LogInvalidPin(kGpios[i]);
       continue;
     }
-    digitalWrite(kGpios[i], HIGH);
-    delay(kScanSettleMs);
-    if (digitalRead(kUartTestInPin) == HIGH) {
-      delay(kScanSettleMs);
-      if (digitalRead(kUartTestInPin) != HIGH) {
-        digitalWrite(kGpios[i], LOW);
-        continue;
+    ledcSetup(kPwmChannel, kTestToneHz, kPwmResolutionBits);
+    ledcAttachPin(kGpios[i], kPwmChannel);
+    ledcWrite(kPwmChannel, 128);
+
+    unsigned long start_ms = millis();
+    int edges = 0;
+    int last = digitalRead(kUartTestInPin);
+    while (static_cast<long>(millis() - start_ms) < static_cast<long>(kDetectWindowMs)) {
+      int v = digitalRead(kUartTestInPin);
+      if (v != last) {
+        edges++;
+        last = v;
       }
+    }
+
+    ledcWrite(kPwmChannel, 0);
+    ledcDetachPin(kGpios[i]);
+
+    if (edges >= kMinEdges) {
       detected = kGpios[i];
-      digitalWrite(kGpios[i], LOW);
       break;
     }
-    delay(kScanHoldMs);
-    digitalWrite(kGpios[i], LOW);
   }
 
   if (detected >= 0 && detected != last_detected) {
