@@ -192,8 +192,9 @@ void setup() {
 
 void loop() {
 #if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
-  static int last_detected = -1;
-  static uint16_t repeat_count = 0;
+  static int last_pin = -1;
+  static uint16_t last_count = 0;
+  static bool connected = false;
   int detected = -1;
   const size_t count = sizeof(kGpios) / sizeof(kGpios[0]);
 
@@ -257,28 +258,30 @@ void loop() {
       }
     }
     if (ok) {
-      if (detected == last_detected) {
-        repeat_count++;
-      } else {
-        last_detected = detected;
-        repeat_count = 1;
+      if (!connected) {
+        if (detected == last_pin) {
+          last_count++;
+        } else {
+          last_pin = detected;
+          last_count = 1;
+        }
+        Serial.print("Connected: GPIO");
+        Serial.print(detected);
+        if (last_count > 1) {
+          Serial.print(" (");
+          Serial.print(last_count);
+          Serial.print(")");
+        }
+        Serial.println();
+        blink_morse('S', false);
+        connected = true;
       }
-      Serial.print("Connected: GPIO");
-      Serial.print(detected);
-      if (repeat_count > 1) {
-        Serial.print(" (");
-        Serial.print(repeat_count);
-        Serial.print(")");
-      }
-      Serial.println();
-      blink_morse('S', false);
     } else {
       blink_morse('O', true);
     }
-  } else if (last_detected >= 0) {
+  } else if (connected) {
     blink_morse('O', true);
-    last_detected = -1;
-    repeat_count = 0;
+    connected = false;
   }
   return;
 #endif
