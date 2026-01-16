@@ -176,6 +176,7 @@ void setup() {
 void loop() {
 #if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
   static int last_detected = -1;
+  static unsigned long last_report_ms = 0;
   int detected = -1;
 
   for (size_t i = 0; i < sizeof(kGpios) / sizeof(kGpios[0]); i++) {
@@ -199,7 +200,8 @@ void loop() {
     digitalWrite(kGpios[i], LOW);
   }
 
-  if (detected != last_detected) {
+  const bool changed = detected != last_detected;
+  if (changed || (now - last_report_ms) >= 1000) {
     if (detected >= 0) {
       Serial.print("Connected: GPIO");
       Serial.println(detected);
@@ -207,6 +209,7 @@ void loop() {
       Serial.println("Connected: none");
     }
     last_detected = detected;
+    last_report_ms = now;
   }
   return;
 #endif
