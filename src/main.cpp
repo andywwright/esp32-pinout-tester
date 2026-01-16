@@ -226,12 +226,12 @@ void loop() {
 
   const size_t count = sizeof(kGpios) / sizeof(kGpios[0]);
   if (!initialized) {
-    unsigned long now = millis();
+    unsigned long init_now = millis();
     for (size_t i = 0; i < count; i++) {
       BuildPinSequence(sequences[i], kGpios[i]);
       states[i].pin = kGpios[i];
       states[i].idx = 0;
-      states[i].next_ms = now + sequences[i].durations[0];
+      states[i].next_ms = init_now + sequences[i].durations[0];
       digitalWrite(states[i].pin, sequences[i].levels[0]);
     }
     initialized = true;
