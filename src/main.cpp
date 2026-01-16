@@ -105,9 +105,12 @@ static void LogInvalidPin(uint8_t pin) {
 static const uint8_t kUartTestInPin = 44;
 static const uint32_t kTestToneHz = 1000;
 static const unsigned long kDetectWindowMs = 25;
+static const unsigned long kConfirmWindowMs = 60;
+static const unsigned long kConfirmSettleMs = 10;
 static const uint16_t kMinEdges = 30;
 static const uint8_t kPwmChannel = 0;
 static const uint8_t kPwmResolutionBits = 8;
+static const uint8_t kStatusLedPin = 40;
 #endif
 
 #if defined(BOARD_ESP32S3) && defined(TEST_MODE)
@@ -175,6 +178,8 @@ void setup() {
   Serial.println("USB CDC test mode active");
 #endif
   pinMode(kUartTestInPin, INPUT);
+  pinMode(kStatusLedPin, OUTPUT);
+  digitalWrite(kStatusLedPin, LOW);
 #endif
 #if defined(BOARD_ESP32S3) && defined(TEST_MODE)
   pinMode(kTestButtonPin, INPUT_PULLUP);
@@ -188,18 +193,14 @@ void loop() {
   int detected = -1;
   const size_t count = sizeof(kGpios) / sizeof(kGpios[0]);
 
-  for (size_t i = 0; i < count; i++) {
-    if (!IsValidOutputPin(kGpios[i])) {
-      LogInvalidPin(kGpios[i]);
-      continue;
-    }
-    ledcAttach(kGpios[i], kTestToneHz, kPwmResolutionBits);
-    ledcWrite(kGpios[i], 128);
+  auto detect_edges = [&](uint8_t pin, unsigned long window_ms) -> bool {
+    ledcAttach(pin, kTestToneHz, kPwmResolutionBits);
+    ledcWrite(pin, 128);
 
     unsigned long start_ms = millis();
     int edges = 0;
     int last = digitalRead(kUartTestInPin);
-    while (static_cast<long>(millis() - start_ms) < static_cast<long>(kDetectWindowMs)) {
+    while (static_cast<long>(millis() - start_ms) < static_cast<long>(window_ms)) {
       int v = digitalRead(kUartTestInPin);
       if (v != last) {
         edges++;
@@ -207,19 +208,58 @@ void loop() {
       }
     }
 
-    ledcWrite(kGpios[i], 0);
-    ledcDetach(kGpios[i]);
+    ledcWrite(pin, 0);
+    ledcDetach(pin);
+    return edges >= kMinEdges;
+  };
 
-    if (edges >= kMinEdges) {
+  auto blink_morse = [&](char c) {
+    const char* pattern = MorseForChar(c);
+    for (size_t i = 0; pattern[i] != '\0'; ++i) {
+      digitalWrite(kStatusLedPin, HIGH);
+      delay(pattern[i] == '-' ? kDashMs : kDotMs);
+      digitalWrite(kStatusLedPin, LOW);
+      if (pattern[i + 1] != '\0') {
+        delay(kIntraElementGapMs);
+      }
+    }
+    delay(kInterLetterGapMs);
+  };
+
+  for (size_t i = 0; i < count; i++) {
+    if (!IsValidOutputPin(kGpios[i])) {
+      LogInvalidPin(kGpios[i]);
+      continue;
+    }
+    if (detect_edges(kGpios[i], kDetectWindowMs)) {
       detected = kGpios[i];
       break;
     }
   }
 
   if (detected >= 0 && detected != last_detected) {
-    Serial.print("Connected: GPIO");
-    Serial.println(detected);
-    last_detected = detected;
+    bool ok = true;
+    for (int pass = 0; pass < 3; pass++) {
+      delay(kConfirmSettleMs);
+      if (!detect_edges(detected, kConfirmWindowMs)) {
+        ok = false;
+        break;
+      }
+      if (pass == 0) {
+        blink_morse('E');
+      } else if (pass == 1) {
+        blink_morse('I');
+      } else {
+        blink_morse('S');
+      }
+    }
+    if (ok) {
+      Serial.print("Connected: GPIO");
+      Serial.println(detected);
+      last_detected = detected;
+    } else {
+      blink_morse('0');
+    }
   } else if (detected < 0) {
     last_detected = -1;
   }
