@@ -105,7 +105,6 @@ static void LogInvalidPin(uint8_t pin) {
 static const uint8_t kUartTestInPin = 44;
 static const unsigned long kScanSettleMs = kDotMs ? kDotMs : 1;
 static const unsigned long kScanHoldMs = kDotMs ? kDotMs : 1;
-static const uint8_t kStableDetectCount = 3;
 #endif
 
 #if defined(BOARD_ESP32S3) && defined(TEST_MODE)
@@ -183,9 +182,6 @@ void setup() {
 void loop() {
 #if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
   static int last_detected = -1;
-  static int candidate = -1;
-  static uint8_t stable_count = 0;
-  static bool reported = false;
   int detected = -1;
   unsigned long now = millis();
 
@@ -201,36 +197,25 @@ void loop() {
     }
     digitalWrite(kGpios[i], HIGH);
     delay(kScanSettleMs);
-    const bool saw_high = (digitalRead(kUartTestInPin) == HIGH);
-    digitalWrite(kGpios[i], LOW);
-    delay(kScanHoldMs);
-    const bool saw_low = (digitalRead(kUartTestInPin) == LOW);
-    if (saw_high && saw_low) {
+    if (digitalRead(kUartTestInPin) == HIGH) {
+      delay(kScanSettleMs);
+      if (digitalRead(kUartTestInPin) != HIGH) {
+        digitalWrite(kGpios[i], LOW);
+        continue;
+      }
       detected = kGpios[i];
+      digitalWrite(kGpios[i], LOW);
       break;
     }
+    delay(kScanHoldMs);
+    digitalWrite(kGpios[i], LOW);
   }
 
-  if (detected >= 0) {
-    if (detected == candidate) {
-      if (stable_count < 255) {
-        stable_count++;
-      }
-    } else {
-      candidate = detected;
-      stable_count = 1;
-      reported = false;
-    }
-    if (!reported && stable_count >= kStableDetectCount) {
-      Serial.print("Connected: GPIO");
-      Serial.println(detected);
-      last_detected = detected;
-      reported = true;
-    }
-  } else {
-    candidate = -1;
-    stable_count = 0;
-    reported = false;
+  if (detected >= 0 && detected != last_detected) {
+    Serial.print("Connected: GPIO");
+    Serial.println(detected);
+    last_detected = detected;
+  } else if (detected < 0) {
     last_detected = -1;
   }
   return;
