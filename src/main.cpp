@@ -18,7 +18,7 @@ static const uint8_t kGpios[] = {
     4, 5, 6, 7, 8, 9, 10, 11,
     12, 13, 14, 15, 16, 18,
     21,
-    35, 36, 37, 38, 39, 40, 41, 42
+    35, 36, 37, 38, 39, 41, 42
 };
 #else
 #error "Define a BOARD_* build flag to select the GPIO list."
@@ -106,7 +106,6 @@ static const uint8_t kUartTestInPin = 44;
 static const uint32_t kTestToneHz = 1000;
 static const unsigned long kDetectWindowMs = 25;
 static const unsigned long kConfirmWindowMs = 60;
-static const unsigned long kConfirmSettleMs = 10;
 static const uint16_t kMinEdges = 30;
 static const uint8_t kPwmChannel = 0;
 static const uint8_t kPwmResolutionBits = 8;
@@ -240,7 +239,6 @@ void loop() {
   if (detected >= 0 && detected != last_detected) {
     bool ok = true;
     for (int pass = 0; pass < 3; pass++) {
-      delay(kConfirmSettleMs);
       if (!detect_edges(detected, kConfirmWindowMs)) {
         ok = false;
         break;
@@ -258,7 +256,7 @@ void loop() {
       Serial.println(detected);
       last_detected = detected;
     } else {
-      blink_morse('0');
+      blink_morse('O');
     }
   } else if (detected < 0) {
     last_detected = -1;
