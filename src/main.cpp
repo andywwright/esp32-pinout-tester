@@ -10,6 +10,7 @@ static const uint8_t kGpios[] = {
     21, 22, 23,
     25, 26, 27,
     32, 33,
+    2,
 };
 #elif defined(BOARD_ESP32S3)
 // ESP32-S3 safe GPIOs (avoid strapping, USB, and UART0 pins by default).
@@ -18,13 +19,15 @@ static const uint8_t kGpios[] = {
     4, 5, 6, 7, 8, 9, 10, 11,
     12, 13, 14, 15, 16, 18,
     21,
-    35, 36, 37, 38, 39, 41, 42
+    35, 36, 37, 38, 39, 41, 42,
+    40
 };
 #else
 #error "Define a BOARD_* build flag to select the GPIO list."
 #endif
 
-// MORSE selects the GPIO-blinking mode; PWM sensing is the default when MORSE is not defined.
+// MORSE selects the GPIO-blinking mode; PINS_TOGGLE selects the button-stepped mode.
+// PWM sensing is the default when neither is defined.
 #if defined(MORSE)
 static const unsigned long kDashMs = 500;
 #else
@@ -108,7 +111,11 @@ static void LogInvalidPin(uint8_t pin) {
   }
 }
 
-#if !defined(MORSE)
+#if defined(MORSE) && defined(PINS_TOGGLE)
+#error "Define only one of MORSE or PINS_TOGGLE."
+#endif
+
+#if !defined(MORSE) && !defined(PINS_TOGGLE)
 // PWM sensing inputs and status indicator.
 #if !defined(SENSE_IN_PIN) || !defined(STATUS_LED_PIN)
 #error "Define SENSE_IN_PIN and STATUS_LED_PIN in platformio.ini build_flags."
@@ -134,6 +141,25 @@ static const uint8_t kTestLedPin = TEST_LED_PIN;
 static const unsigned long kTestBlinkMs = 100;
 static unsigned long g_test_next_ms = 0;
 static bool g_test_level = false;
+#endif
+
+#if defined(PINS_TOGGLE)
+#if !defined(TEST_BUTTON_PIN)
+#error "Define TEST_BUTTON_PIN in platformio.ini build_flags."
+#endif
+#if !defined(PINS_LEVEL)
+#error "Define PINS_LEVEL=HIGH or PINS_LEVEL=LOW in platformio.ini build_flags."
+#endif
+static const uint8_t kTestButtonPin = TEST_BUTTON_PIN;
+static const uint8_t kPinsLevel = PINS_LEVEL;
+static const unsigned long kPinsTogglePulseMs = 200;
+#endif
+
+#if defined(PINS_TOGGLE)
+#if !defined(TEST_BUTTON_PIN)
+#error "Define TEST_BUTTON_PIN in platformio.ini build_flags."
+#endif
+static const uint8_t kTestButtonPin = TEST_BUTTON_PIN;
 #endif
 
 static void AddStep(MorseSequence& seq, uint8_t level, uint16_t duration) {
@@ -189,7 +215,7 @@ void setup() {
     pinMode(kGpios[i], OUTPUT);
     digitalWrite(kGpios[i], LOW);
   }
-#if !defined(MORSE)
+#if !defined(MORSE) && !defined(PINS_TOGGLE)
 #if defined(BOARD_ESP32S3)
   Serial.println("USB CDC test mode active");
 #endif
@@ -201,10 +227,18 @@ void setup() {
   pinMode(kTestButtonPin, INPUT_PULLUP);
   pinMode(kTestLedPin, OUTPUT);
 #endif
+#if defined(PINS_TOGGLE)
+  pinMode(kTestButtonPin, INPUT_PULLUP);
+  for (size_t i = 0; i < count; i++) {
+    if (IsValidOutputPin(kGpios[i])) {
+      digitalWrite(kGpios[i], kPinsLevel);
+    }
+  }
+#endif
 }
 
 void loop() {
-#if !defined(MORSE)
+#if !defined(MORSE) && !defined(PINS_TOGGLE)
   // PWM sensing mode: scan outputs, look for the 1 kHz signature on kSenseInPin.
   static int last_pin = -1;
   static uint16_t last_count = 0;
@@ -303,6 +337,43 @@ void loop() {
   }
   return;
 #endif
+#if defined(PINS_TOGGLE)
+  // Button-stepped mode: each press pulses the current pin opposite to PINS_LEVEL.
+  static size_t idx = 0;
+  static int last_state = HIGH;
+  static unsigned long last_press_ms = 0;
+  const unsigned long now_ms = millis();
+  const size_t count2 = sizeof(kGpios) / sizeof(kGpios[0]);
+  const int state = digitalRead(kTestButtonPin);
+
+  if (state == LOW && last_state == HIGH) {
+    if (now_ms - last_press_ms >= 50) {
+      if (idx >= count2) {
+        idx = 0;
+      }
+      const uint8_t pin = kGpios[idx];
+      if (!IsValidOutputPin(pin)) {
+        LogInvalidPin(pin);
+        idx++;
+      } else {
+        const uint8_t pulse_level = (kPinsLevel == HIGH) ? LOW : HIGH;
+        Serial.print("Pin ");
+        Serial.print(pin);
+        Serial.print(" ");
+        Serial.print(pulse_level == HIGH ? "HIGH" : "LOW");
+        Serial.print(" -> ");
+        Serial.println(kPinsLevel == HIGH ? "HIGH" : "LOW");
+        digitalWrite(pin, pulse_level);
+        delay(kPinsTogglePulseMs);
+        digitalWrite(pin, kPinsLevel);
+        idx++;
+      }
+      last_press_ms = now_ms;
+    }
+  }
+  last_state = state;
+  return;
+#endif
 #if defined(MORSE)
   // Morse mode: non-blocking per-pin scheduler.
   static bool initialized = false;
@@ -321,6 +392,30 @@ void loop() {
     }
     initialized = true;
   }
+
+  // TEMP stub: drive all pins HIGH, then pull each LOW for 200 ms in sequence.
+  static bool all_high = false;
+  static size_t idx = 0;
+  if (!all_high) {
+    for (size_t i = 0; i < count2; i++) {
+      if (IsValidOutputPin(kGpios[i])) {
+        digitalWrite(kGpios[i], HIGH);
+      }
+    }
+    all_high = true;
+  }
+  if (idx >= count2) {
+    idx = 0;
+  }
+  if (IsValidOutputPin(kGpios[idx])) {
+    digitalWrite(kGpios[idx], LOW);
+    delay(200);
+    digitalWrite(kGpios[idx], HIGH);
+  } else {
+    delay(200);
+  }
+  idx++;
+  return;
 
   unsigned long now_ms = millis();
 #if defined(MORSE) && defined(TEST_BUTTON)
