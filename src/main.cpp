@@ -172,7 +172,7 @@ void setup() {
 #if defined(BOARD_ESP32S3)
   Serial.println("USB CDC test mode active");
 #endif
-  pinMode(kUartTestInPin, INPUT_PULLDOWN);
+  pinMode(kUartTestInPin, INPUT);
 #endif
 #if defined(BOARD_ESP32S3) && defined(TEST_MODE)
   pinMode(kTestButtonPin, INPUT_PULLUP);
@@ -206,7 +206,7 @@ void loop() {
     digitalWrite(kGpios[i], LOW);
     delay(kScanHoldMs);
     const bool v2 = (digitalRead(kUartTestInPin) == HIGH);
-    if (v1 != v0 && v2 == v0) {
+    if ((v1 != v2) && (v0 == v1 || v0 == v2)) {
       detected = kGpios[i];
       break;
     }
