@@ -93,8 +93,10 @@ static void LogInvalidPin(uint8_t pin) {
   static unsigned long last_log_ms = 0;
   unsigned long now = millis();
   if (now - last_log_ms >= kErrorLogRateMs) {
+#if defined(BOARD_ESP32S3)
     Serial.print("Skipping invalid output pin: GPIO");
     Serial.println(pin);
+#endif
     last_log_ms = now;
   }
 }
@@ -153,7 +155,9 @@ static void BuildPinSequence(MorseSequence& seq, uint8_t pin) {
 }
 
 void setup() {
+#if defined(BOARD_ESP32S3)
   Serial.begin(115200);
+#endif
   const size_t count = sizeof(kGpios) / sizeof(kGpios[0]);
   for (size_t i = 0; i < count; i++) {
     if (!IsValidOutputPin(kGpios[i])) {
@@ -164,7 +168,9 @@ void setup() {
     digitalWrite(kGpios[i], LOW);
   }
 #if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
-  Serial.println("UART test mode active");
+#if defined(BOARD_ESP32S3)
+  Serial.println("USB CDC test mode active");
+#endif
   pinMode(kUartTestInPin, INPUT_PULLDOWN);
 #endif
 #if defined(BOARD_ESP32S3) && defined(TEST_MODE)
@@ -178,6 +184,7 @@ void loop() {
   static int last_detected = -1;
   static unsigned long last_report_ms = 0;
   int detected = -1;
+  unsigned long now = millis();
 
   for (size_t i = 0; i < sizeof(kGpios) / sizeof(kGpios[0]); i++) {
     if (IsValidOutputPin(kGpios[i])) {
