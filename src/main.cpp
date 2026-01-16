@@ -237,19 +237,19 @@ void loop() {
     initialized = true;
   }
 
-  unsigned long now = millis();
+  unsigned long now_ms = millis();
 #if defined(BOARD_ESP32S3) && defined(TEST_MODE)
   const bool test_pressed = digitalRead(kTestButtonPin) == LOW;
   if (test_pressed) {
-    if (static_cast<long>(now - g_test_next_ms) >= 0) {
+    if (static_cast<long>(now_ms - g_test_next_ms) >= 0) {
       g_test_level = !g_test_level;
       digitalWrite(kTestLedPin, g_test_level ? HIGH : LOW);
-      g_test_next_ms = now + kTestBlinkMs;
+      g_test_next_ms = now_ms + kTestBlinkMs;
     }
   }
 #endif
   for (size_t i = 0; i < count; i++) {
-    if (static_cast<long>(now - states[i].next_ms) >= 0) {
+    if (static_cast<long>(now_ms - states[i].next_ms) >= 0) {
       states[i].idx = static_cast<uint8_t>((states[i].idx + 1) % sequences[i].len);
       if (
 #if defined(BOARD_ESP32S3) && defined(TEST_MODE)
@@ -263,7 +263,7 @@ void loop() {
         digitalWrite(states[i].pin, sequences[i].levels[states[i].idx]);
         }
       }
-      states[i].next_ms = now + sequences[i].durations[states[i].idx];
+      states[i].next_ms = now_ms + sequences[i].durations[states[i].idx];
     }
   }
 #if defined(BOARD_ESP32S3) && defined(TEST_MODE)
