@@ -28,7 +28,7 @@ static const uint8_t kGpios[] = {
 #if defined(MORSE)
 static const unsigned long kDashMs = 500;
 #else
-static const unsigned long kDashMs = 100;
+static const unsigned long kDashMs = 200;
 #endif
 static const unsigned long kDotMs = kDashMs / 3;
 static const unsigned long kIntraElementGapMs = kDotMs;
