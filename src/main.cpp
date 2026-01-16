@@ -24,7 +24,11 @@ static const uint8_t kGpios[] = {
 #error "Define a BOARD_* build flag to select the GPIO list."
 #endif
 
+#if defined(UART_TEST_MODE)
+static const unsigned long kDashMs = 100;
+#else
 static const unsigned long kDashMs = 500;
+#endif
 static const unsigned long kDotMs = kDashMs / 3;
 static const unsigned long kIntraElementGapMs = kDotMs;
 static const unsigned long kInterLetterGapMs = 3 * kDotMs;
