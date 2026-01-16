@@ -25,7 +25,7 @@ static const uint8_t kGpios[] = {
 #endif
 
 #if defined(UART_TEST_MODE)
-static const unsigned long kDashMs = 100;
+static const unsigned long kDashMs = 200;
 #else
 static const unsigned long kDashMs = 500;
 #endif
@@ -193,6 +193,7 @@ void setup() {
 void loop() {
 #if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
   static int last_detected = -1;
+  static bool locked = false;
   int detected = -1;
   const size_t count = sizeof(kGpios) / sizeof(kGpios[0]);
 
@@ -216,7 +217,7 @@ void loop() {
     return edges >= kMinEdges;
   };
 
-  auto blink_morse = [&](char c) {
+  auto blink_morse = [&](char c, bool final_gap) {
     const char* pattern = MorseForChar(c);
     for (size_t i = 0; pattern[i] != '\0'; ++i) {
       digitalWrite(kStatusLedPin, HIGH);
@@ -226,8 +227,19 @@ void loop() {
         delay(kIntraElementGapMs);
       }
     }
-    delay(kInterLetterGapMs);
+    if (final_gap) {
+      delay(kInterLetterGapMs);
+    }
   };
+
+  if (locked && last_detected >= 0) {
+    if (!detect_edges(last_detected, kConfirmWindowMs)) {
+      locked = false;
+      last_detected = -1;
+      blink_morse('O', true);
+    }
+    return;
+  }
 
   for (size_t i = 0; i < count; i++) {
     if (!IsValidOutputPin(kGpios[i])) {
@@ -248,22 +260,24 @@ void loop() {
         break;
       }
       if (pass == 0) {
-        blink_morse('E');
+        blink_morse('E', true);
       } else if (pass == 1) {
-        blink_morse('I');
+        blink_morse('I', true);
       } else {
-        blink_morse('S');
+        Serial.print("Connected: GPIO");
+        Serial.println(detected);
+        blink_morse('S', false);
       }
     }
     if (ok) {
-      Serial.print("Connected: GPIO");
-      Serial.println(detected);
       last_detected = detected;
+      locked = true;
     } else {
-      blink_morse('O');
+      blink_morse('O', true);
     }
   } else if (detected < 0) {
     last_detected = -1;
+    locked = false;
   }
   return;
 #endif
