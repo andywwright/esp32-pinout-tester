@@ -152,7 +152,6 @@ static bool g_test_level = false;
 #endif
 static const uint8_t kTestButtonPin = TEST_BUTTON_PIN;
 static const uint8_t kPinsLevel = PINS_LEVEL;
-static const unsigned long kPinsTogglePulseMs = 200;
 #endif
 
 static void AddStep(MorseSequence& seq, uint8_t level, uint16_t duration) {
@@ -331,8 +330,9 @@ void loop() {
   return;
 #endif
 #if defined(PINS_TOGGLE)
-  // Button-stepped mode: each press pulses the current pin opposite to PINS_LEVEL.
+  // Button-stepped mode: each press flips the current pin opposite to PINS_LEVEL.
   static size_t idx = 0;
+  static int active_pin = -1;
   static int last_state = HIGH;
   static unsigned long last_press_ms = 0;
   const unsigned long now_ms = millis();
@@ -341,6 +341,11 @@ void loop() {
 
   if (state == LOW && last_state == HIGH) {
     if (now_ms - last_press_ms >= 50) {
+      if (active_pin >= 0) {
+        digitalWrite(static_cast<uint8_t>(active_pin), kPinsLevel);
+        active_pin = -1;
+      }
+
       if (idx >= count2) {
         idx = 0;
       }
@@ -353,12 +358,9 @@ void loop() {
         Serial.print("Pin ");
         Serial.print(pin);
         Serial.print(" ");
-        Serial.print(pulse_level == HIGH ? "HIGH" : "LOW");
-        Serial.print(" -> ");
-        Serial.println(kPinsLevel == HIGH ? "HIGH" : "LOW");
+        Serial.println(pulse_level == HIGH ? "HIGH" : "LOW");
         digitalWrite(pin, pulse_level);
-        delay(kPinsTogglePulseMs);
-        digitalWrite(pin, kPinsLevel);
+        active_pin = pin;
         idx++;
       }
       last_press_ms = now_ms;

@@ -90,8 +90,9 @@ build_flags =
 
 ## Pin toggle mode
 
-Each button press targets one pin, pulses it to the opposite of `PINS_LEVEL` for 200 ms, then returns it to `PINS_LEVEL`.
-The serial log prints the pin and the pulse/idle levels.
+Each button press targets one pin and drives it to the opposite of `PINS_LEVEL` until the next press.
+The next press first restores the previous pin back to `PINS_LEVEL`, then advances.
+The serial log prints the pin and the driven level.
 
 Pin configuration example:
 ```ini
