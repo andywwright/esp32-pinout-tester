@@ -110,23 +110,8 @@ static void LogInvalidPin(uint8_t pin) {
 
 #if !defined(MORSE)
 // PWM sensing inputs and status indicator.
-#if !defined(SENSE_IN_PIN)
-#if defined(BOARD_ESP32S3)
-#define SENSE_IN_PIN 44
-#elif defined(BOARD_D1MINI_ESP32)
-#define SENSE_IN_PIN 3
-#else
-#define SENSE_IN_PIN 3
-#endif
-#endif
-#if !defined(STATUS_LED_PIN)
-#if defined(BOARD_ESP32S3)
-#define STATUS_LED_PIN 40
-#elif defined(BOARD_D1MINI_ESP32)
-#define STATUS_LED_PIN 2
-#else
-#define STATUS_LED_PIN 2
-#endif
+#if !defined(SENSE_IN_PIN) || !defined(STATUS_LED_PIN)
+#error "Define SENSE_IN_PIN and STATUS_LED_PIN in platformio.ini build_flags."
 #endif
 static const uint8_t kSenseInPin = SENSE_IN_PIN;
 static const uint8_t kStatusLedPin = STATUS_LED_PIN;
@@ -141,23 +126,8 @@ static const uint8_t kPwmResolutionBits = 8;
 
 #if defined(MORSE) && defined(TEST_BUTTON)
 // Button-driven override for Morse mode (per-board pins via TEST_* macros).
-#if !defined(TEST_BUTTON_PIN)
-#if defined(BOARD_ESP32S3)
-#define TEST_BUTTON_PIN 17
-#elif defined(BOARD_D1MINI_ESP32)
-#define TEST_BUTTON_PIN 4
-#else
-#define TEST_BUTTON_PIN 4
-#endif
-#endif
-#if !defined(TEST_LED_PIN)
-#if defined(BOARD_ESP32S3)
-#define TEST_LED_PIN 40
-#elif defined(BOARD_D1MINI_ESP32)
-#define TEST_LED_PIN 2
-#else
-#define TEST_LED_PIN 2
-#endif
+#if !defined(TEST_BUTTON_PIN) || !defined(TEST_LED_PIN)
+#error "Define TEST_BUTTON_PIN and TEST_LED_PIN in platformio.ini build_flags."
 #endif
 static const uint8_t kTestButtonPin = TEST_BUTTON_PIN;
 static const uint8_t kTestLedPin = TEST_LED_PIN;
