@@ -24,6 +24,7 @@ static const uint8_t kGpios[] = {
 #error "Define a BOARD_* build flag to select the GPIO list."
 #endif
 
+// MORSE selects the GPIO-blinking mode; PWM sensing is the default when MORSE is not defined.
 #if defined(MORSE)
 static const unsigned long kDashMs = 500;
 #else
@@ -89,6 +90,7 @@ struct PinState {
   unsigned long next_ms;
 };
 
+// Guard against board variants where a listed pin isn't output-capable.
 static bool IsValidOutputPin(uint8_t pin) {
   return digitalPinCanOutput(pin);
 }
@@ -98,6 +100,7 @@ static void LogInvalidPin(uint8_t pin) {
   unsigned long now = millis();
   if (now - last_log_ms >= kErrorLogRateMs) {
 #if defined(BOARD_ESP32S3)
+    // Keep logs on USB CDC for S3; other boards may not expose serial.
     Serial.print("Skipping invalid output pin: GPIO");
     Serial.println(pin);
 #endif
@@ -106,6 +109,7 @@ static void LogInvalidPin(uint8_t pin) {
 }
 
 #if !defined(MORSE)
+// PWM sensing inputs and status indicator.
 #if !defined(SENSE_IN_PIN)
 #if defined(BOARD_ESP32S3)
 #define SENSE_IN_PIN 44
@@ -129,12 +133,14 @@ static const uint8_t kStatusLedPin = STATUS_LED_PIN;
 static const uint32_t kTestToneHz = 1000;
 static const unsigned long kDetectWindowMs = 25;
 static const unsigned long kConfirmWindowMs = 60;
+// Minimum observed edges in the window to accept a connection.
 static const uint16_t kMinEdges = 30;
 static const uint8_t kPwmChannel = 0;
 static const uint8_t kPwmResolutionBits = 8;
 #endif
 
 #if defined(MORSE) && defined(TEST_BUTTON)
+// Button-driven override for Morse mode (per-board pins via TEST_* macros).
 #if !defined(TEST_BUTTON_PIN)
 #if defined(BOARD_ESP32S3)
 #define TEST_BUTTON_PIN 17
@@ -190,6 +196,7 @@ static void BuildPinSequence(MorseSequence& seq, uint8_t pin) {
 
   char digits[6];
   snprintf(digits, sizeof(digits), "%u", pin);
+  // Spell the pin number in Morse as separate digits.
   for (size_t i = 0; digits[i] != '\0'; ++i) {
     AppendChar(seq, digits[i]);
     if (digits[i + 1] != '\0') {
@@ -228,6 +235,7 @@ void setup() {
 
 void loop() {
 #if !defined(MORSE)
+  // PWM sensing mode: scan outputs, look for the 1 kHz signature on kSenseInPin.
   static int last_pin = -1;
   static uint16_t last_count = 0;
   static bool connected = false;
@@ -254,6 +262,7 @@ void loop() {
     return edges >= kMinEdges;
   };
 
+  // Status signaling: E/I/S for confirm passes, O on failure/disconnect.
   auto blink_morse = [&](char c, bool final_gap) {
     const char* pattern = MorseForChar(c);
     for (size_t i = 0; pattern[i] != '\0'; ++i) {
@@ -325,6 +334,7 @@ void loop() {
   return;
 #endif
 #if defined(MORSE)
+  // Morse mode: non-blocking per-pin scheduler.
   static bool initialized = false;
   static MorseSequence sequences[sizeof(kGpios) / sizeof(kGpios[0])];
   static PinState states[sizeof(kGpios) / sizeof(kGpios[0])];
