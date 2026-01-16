@@ -357,7 +357,7 @@ void loop() {
     if (static_cast<long>(now_ms - states[i].next_ms) >= 0) {
       states[i].idx = static_cast<uint8_t>((states[i].idx + 1) % sequences[i].len);
       if (
-#if defined(BOARD_ESP32S3) && defined(TEST_MODE)
+#if defined(MODE_MORSE) && defined(TEST_MODE)
           !(test_pressed && states[i].pin == kTestLedPin) &&
 #endif
           true
@@ -373,7 +373,7 @@ void loop() {
   }
 #if defined(MODE_MORSE) && defined(TEST_MODE)
   if (!test_pressed) {
-    for (size_t i = 0; i < count; i++) {
+    for (size_t i = 0; i < count2; i++) {
       if (states[i].pin == kTestLedPin) {
         digitalWrite(states[i].pin, sequences[i].levels[states[i].idx]);
         break;
