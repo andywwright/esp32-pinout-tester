@@ -275,9 +275,6 @@ void loop() {
     } else {
       blink_morse('O', true);
     }
-  } else if (detected < 0) {
-    last_detected = -1;
-    repeat_count = 0;
   }
   return;
 #endif
