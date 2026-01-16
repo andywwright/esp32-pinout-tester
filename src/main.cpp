@@ -245,6 +245,9 @@ void loop() {
   }
 
   if (detected >= 0) {
+    if (connected) {
+      return;
+    }
     bool ok = true;
     for (int pass = 0; pass < 3; pass++) {
       if (!detect_edges(detected, kConfirmWindowMs)) {
