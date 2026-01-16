@@ -199,13 +199,14 @@ void loop() {
       LogInvalidPin(kGpios[i]);
       continue;
     }
+    const bool v0 = (digitalRead(kUartTestInPin) == HIGH);
     digitalWrite(kGpios[i], HIGH);
     delay(kScanSettleMs);
-    const bool saw_high = (digitalRead(kUartTestInPin) == HIGH);
+    const bool v1 = (digitalRead(kUartTestInPin) == HIGH);
     digitalWrite(kGpios[i], LOW);
     delay(kScanHoldMs);
-    const bool saw_low = (digitalRead(kUartTestInPin) == LOW);
-    if (saw_high && saw_low) {
+    const bool v2 = (digitalRead(kUartTestInPin) == HIGH);
+    if (v1 != v0 && v2 == v0) {
       detected = kGpios[i];
       break;
     }
