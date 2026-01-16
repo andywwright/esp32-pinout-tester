@@ -193,9 +193,8 @@ void loop() {
       LogInvalidPin(kGpios[i]);
       continue;
     }
-    ledcSetup(kPwmChannel, kTestToneHz, kPwmResolutionBits);
-    ledcAttachPin(kGpios[i], kPwmChannel);
-    ledcWrite(kPwmChannel, 128);
+    ledcAttach(kGpios[i], kTestToneHz, kPwmResolutionBits);
+    ledcWrite(kGpios[i], 128);
 
     unsigned long start_ms = millis();
     int edges = 0;
@@ -208,8 +207,8 @@ void loop() {
       }
     }
 
-    ledcWrite(kPwmChannel, 0);
-    ledcDetachPin(kGpios[i]);
+    ledcWrite(kGpios[i], 0);
+    ledcDetach(kGpios[i]);
 
     if (edges >= kMinEdges) {
       detected = kGpios[i];
@@ -230,10 +229,10 @@ void loop() {
   static MorseSequence sequences[sizeof(kGpios) / sizeof(kGpios[0])];
   static PinState states[sizeof(kGpios) / sizeof(kGpios[0])];
 
-  const size_t count = sizeof(kGpios) / sizeof(kGpios[0]);
+  const size_t count2 = sizeof(kGpios) / sizeof(kGpios[0]);
   if (!initialized) {
     unsigned long init_now = millis();
-    for (size_t i = 0; i < count; i++) {
+    for (size_t i = 0; i < count2; i++) {
       BuildPinSequence(sequences[i], kGpios[i]);
       states[i].pin = kGpios[i];
       states[i].idx = 0;
@@ -254,7 +253,7 @@ void loop() {
     }
   }
 #endif
-  for (size_t i = 0; i < count; i++) {
+  for (size_t i = 0; i < count2; i++) {
     if (static_cast<long>(now_ms - states[i].next_ms) >= 0) {
       states[i].idx = static_cast<uint8_t>((states[i].idx + 1) % sequences[i].len);
       if (
