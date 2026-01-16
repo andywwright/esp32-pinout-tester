@@ -193,7 +193,7 @@ void setup() {
 void loop() {
 #if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
   static int last_detected = -1;
-  static bool locked = false;
+  static uint16_t repeat_count = 0;
   int detected = -1;
   const size_t count = sizeof(kGpios) / sizeof(kGpios[0]);
 
@@ -232,15 +232,6 @@ void loop() {
     }
   };
 
-  if (locked && last_detected >= 0) {
-    if (!detect_edges(last_detected, kConfirmWindowMs)) {
-      locked = false;
-      last_detected = -1;
-      blink_morse('O', true);
-    }
-    return;
-  }
-
   for (size_t i = 0; i < count; i++) {
     if (!IsValidOutputPin(kGpios[i])) {
       LogInvalidPin(kGpios[i]);
@@ -263,21 +254,30 @@ void loop() {
         blink_morse('E', true);
       } else if (pass == 1) {
         blink_morse('I', true);
-      } else {
-        Serial.print("Connected: GPIO");
-        Serial.println(detected);
-        blink_morse('S', false);
       }
     }
     if (ok) {
-      last_detected = detected;
-      locked = true;
+      if (detected == last_detected) {
+        repeat_count++;
+      } else {
+        last_detected = detected;
+        repeat_count = 1;
+      }
+      Serial.print("Connected: GPIO");
+      Serial.print(detected);
+      if (repeat_count > 1) {
+        Serial.print(" (");
+        Serial.print(repeat_count);
+        Serial.print(")");
+      }
+      Serial.println();
+      blink_morse('S', false);
     } else {
       blink_morse('O', true);
     }
   } else if (detected < 0) {
     last_detected = -1;
-    locked = false;
+    repeat_count = 0;
   }
   return;
 #endif
