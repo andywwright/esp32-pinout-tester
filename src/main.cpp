@@ -24,10 +24,10 @@ static const uint8_t kGpios[] = {
 #error "Define a BOARD_* build flag to select the GPIO list."
 #endif
 
-#if defined(UART_TEST_MODE)
-static const unsigned long kDashMs = 200;
-#else
+#if defined(MODE_MORSE)
 static const unsigned long kDashMs = 500;
+#else
+static const unsigned long kDashMs = 100;
 #endif
 static const unsigned long kDotMs = kDashMs / 3;
 static const unsigned long kIntraElementGapMs = kDotMs;
@@ -105,18 +105,26 @@ static void LogInvalidPin(uint8_t pin) {
   }
 }
 
-#if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
-static const uint8_t kUartTestInPin = 44;
+#if !defined(MODE_MORSE)
+#if defined(BOARD_ESP32S3)
+static const uint8_t kSenseInPin = 44;
+static const uint8_t kStatusLedPin = 40;
+#elif defined(BOARD_D1MINI_ESP32)
+static const uint8_t kSenseInPin = 3; // U0RXD
+static const uint8_t kStatusLedPin = 2; // On-board LED on many D1 mini ESP32s.
+#else
+static const uint8_t kSenseInPin = 3;
+static const uint8_t kStatusLedPin = 2;
+#endif
 static const uint32_t kTestToneHz = 1000;
 static const unsigned long kDetectWindowMs = 25;
 static const unsigned long kConfirmWindowMs = 60;
 static const uint16_t kMinEdges = 30;
 static const uint8_t kPwmChannel = 0;
 static const uint8_t kPwmResolutionBits = 8;
-static const uint8_t kStatusLedPin = 40;
 #endif
 
-#if defined(BOARD_ESP32S3) && defined(TEST_MODE)
+#if defined(BOARD_ESP32S3) && defined(TEST_MODE) && defined(MODE_MORSE)
 static const uint8_t kTestButtonPin = 17;
 static const uint8_t kTestLedPin = 40;
 static const unsigned long kTestBlinkMs = 100;
@@ -176,22 +184,22 @@ void setup() {
     pinMode(kGpios[i], OUTPUT);
     digitalWrite(kGpios[i], LOW);
   }
-#if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
+#if !defined(MODE_MORSE)
 #if defined(BOARD_ESP32S3)
   Serial.println("USB CDC test mode active");
 #endif
-  pinMode(kUartTestInPin, INPUT);
+  pinMode(kSenseInPin, INPUT);
   pinMode(kStatusLedPin, OUTPUT);
   digitalWrite(kStatusLedPin, LOW);
 #endif
-#if defined(BOARD_ESP32S3) && defined(TEST_MODE)
+#if defined(BOARD_ESP32S3) && defined(TEST_MODE) && defined(MODE_MORSE)
   pinMode(kTestButtonPin, INPUT_PULLUP);
   pinMode(kTestLedPin, OUTPUT);
 #endif
 }
 
 void loop() {
-#if defined(BOARD_ESP32S3) && defined(UART_TEST_MODE)
+#if !defined(MODE_MORSE)
   static int last_pin = -1;
   static uint16_t last_count = 0;
   static bool connected = false;
@@ -204,9 +212,9 @@ void loop() {
 
     unsigned long start_ms = millis();
     int edges = 0;
-    int last = digitalRead(kUartTestInPin);
+    int last = digitalRead(kSenseInPin);
     while (static_cast<long>(millis() - start_ms) < static_cast<long>(window_ms)) {
-      int v = digitalRead(kUartTestInPin);
+      int v = digitalRead(kSenseInPin);
       if (v != last) {
         edges++;
         last = v;
@@ -288,6 +296,7 @@ void loop() {
   }
   return;
 #endif
+#if defined(MODE_MORSE)
   static bool initialized = false;
   static MorseSequence sequences[sizeof(kGpios) / sizeof(kGpios[0])];
   static PinState states[sizeof(kGpios) / sizeof(kGpios[0])];
@@ -343,5 +352,6 @@ void loop() {
       }
     }
   }
+#endif
 #endif
 }
