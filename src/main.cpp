@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Wire.h>
 
 #if defined(BOARD_D1MINI_ESP32)
 // D1 Mini ESP32 safe GPIOs.
@@ -31,7 +32,7 @@ static const uint8_t kGpios[] = {
 #endif
 
 // MORSE selects the GPIO-blinking mode; PINS_TOGGLE selects the button-stepped mode.
-// PWM sensing is the default when neither is defined.
+// I2C_PROBE selects the I2C scan mode. PWM sensing is the default otherwise.
 #if defined(MORSE)
 static const unsigned long kDashMs = 500;
 #else
@@ -118,8 +119,14 @@ static void LogInvalidPin(uint8_t pin) {
 #if defined(MORSE) && defined(PINS_TOGGLE)
 #error "Define only one of MORSE or PINS_TOGGLE."
 #endif
+#if defined(MORSE) && defined(I2C_PROBE)
+#error "Define only one of MORSE or I2C_PROBE."
+#endif
+#if defined(PINS_TOGGLE) && defined(I2C_PROBE)
+#error "Define only one of PINS_TOGGLE or I2C_PROBE."
+#endif
 
-#if !defined(MORSE) && !defined(PINS_TOGGLE)
+#if !defined(MORSE) && !defined(PINS_TOGGLE) && !defined(I2C_PROBE)
 // PWM sensing inputs and status indicator.
 #if !defined(SENSE_IN_PIN) || !defined(STATUS_LED_PIN)
 #error "Define SENSE_IN_PIN and STATUS_LED_PIN in platformio.ini build_flags."
@@ -156,6 +163,15 @@ static bool g_test_level = false;
 #endif
 static const uint8_t kTestButtonPin = TEST_BUTTON_PIN;
 static const uint8_t kPinsLevel = PINS_LEVEL;
+#endif
+
+#if defined(I2C_PROBE)
+#if !defined(I2C_SDA) || !defined(I2C_SCL)
+#error "Define I2C_SDA and I2C_SCL in platformio.ini build_flags."
+#endif
+static const uint8_t kI2cSdaPin = I2C_SDA;
+static const uint8_t kI2cSclPin = I2C_SCL;
+static const unsigned long kI2cProbeIntervalMs = 1000;
 #endif
 
 static void AddStep(MorseSequence& seq, uint8_t level, uint16_t duration) {
@@ -211,7 +227,7 @@ void setup() {
     pinMode(kGpios[i], OUTPUT);
     digitalWrite(kGpios[i], LOW);
   }
-#if !defined(MORSE) && !defined(PINS_TOGGLE)
+#if !defined(MORSE) && !defined(PINS_TOGGLE) && !defined(I2C_PROBE)
 #if defined(BOARD_ESP32S3)
   Serial.println("USB CDC test mode active");
 #endif
@@ -231,10 +247,20 @@ void setup() {
     }
   }
 #endif
+#if defined(I2C_PROBE)
+  Wire.begin(kI2cSdaPin, kI2cSclPin);
+  Wire.setClock(100000);
+#if defined(BOARD_ESP32S3)
+  Serial.print("I2C probe on SDA=");
+  Serial.print(kI2cSdaPin);
+  Serial.print(" SCL=");
+  Serial.println(kI2cSclPin);
+#endif
+#endif
 }
 
 void loop() {
-#if !defined(MORSE) && !defined(PINS_TOGGLE)
+#if !defined(MORSE) && !defined(PINS_TOGGLE) && !defined(I2C_PROBE)
   // PWM sensing mode: scan outputs, look for the 1 kHz signature on kSenseInPin.
   static int last_pin = -1;
   static uint16_t last_count = 0;
@@ -371,6 +397,29 @@ void loop() {
     }
   }
   last_state = state;
+  return;
+#endif
+#if defined(I2C_PROBE)
+  static unsigned long next_probe_ms = 0;
+  const unsigned long now_ms = millis();
+  if (static_cast<long>(now_ms - next_probe_ms) >= 0) {
+    bool found = false;
+    for (uint8_t addr = 0x08; addr <= 0x77; addr++) {
+      Wire.beginTransmission(addr);
+      if (Wire.endTransmission() == 0) {
+        Serial.print("I2C device at 0x");
+        if (addr < 16) {
+          Serial.print('0');
+        }
+        Serial.println(addr, HEX);
+        found = true;
+      }
+    }
+    if (!found) {
+      Serial.println("I2C: no devices");
+    }
+    next_probe_ms = now_ms + kI2cProbeIntervalMs;
+  }
   return;
 #endif
 #if defined(MORSE)

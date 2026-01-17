@@ -2,10 +2,11 @@
 
 Small PlatformIO project for identifying ESP32 GPIOs.
 
-Three modes:
+Four modes:
 - PWM sensing (default): drives each GPIO with a 1 kHz square wave and detects which pin is connected to the sense input.
 - Morse output: blinks each GPIO number in Morse code.
 - Pin toggle (button-stepped): pulses each GPIO on button press and logs the pin/state.
+- I2C probe: scans the I2C bus and logs detected device addresses.
 
 ## Quick start
 
@@ -33,6 +34,7 @@ build_flags =
   ; -DTEST_BUTTON
   ; -DPINS_TOGGLE
   ; -DPINS_LEVEL=HIGH
+  ; -DI2C_PROBE
 ```
 
 - Default (no flags): PWM sensing mode.
@@ -40,6 +42,7 @@ build_flags =
 - `-DTEST_BUTTON`: enables the Morse test button behavior (Morse mode only).
 - `-DPINS_TOGGLE`: enables button-stepped pin toggling.
 - `-DPINS_LEVEL=HIGH` or `-DPINS_LEVEL=LOW`: idle level for `PINS_TOGGLE`.
+- `-DI2C_PROBE`: enables I2C scan mode.
 
 After changing flags, rebuild and upload.
 
@@ -101,6 +104,19 @@ build_flags =
   -DPINS_TOGGLE
   -DPINS_LEVEL=HIGH
   -DTEST_BUTTON_PIN=17
+```
+
+## I2C probe mode
+
+Scans the I2C bus once per second and prints detected addresses.
+
+Pin configuration example:
+```ini
+build_flags =
+  -DBOARD_ESP32S3
+  -DI2C_PROBE
+  -DI2C_SDA=41
+  -DI2C_SCL=42
 ```
 
 ## Board environments
