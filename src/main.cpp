@@ -422,7 +422,7 @@ void loop() {
       for (uint8_t addr = 0x08; addr <= 0x77; addr++) {
         Wire.beginTransmission(addr);
         if (Wire.endTransmission() == 0) {
-          Serial.print("I2C device at 0x");
+          Serial.print("I2C device found at 0x");
           if (addr < 16) {
             Serial.print('0');
           }
@@ -441,6 +441,7 @@ void loop() {
       }
 
       const uint8_t addr = static_cast<uint8_t>(first_addr);
+      Serial.println("Checking if it's BM8563 RTC...");
       Wire.beginTransmission(addr);
       Wire.write(0x02);
       if (Wire.endTransmission(false) != 0) {
@@ -492,6 +493,35 @@ void loop() {
         Serial.print('0');
       }
       Serial.println(sec);
+
+      Wire.beginTransmission(addr);
+      Wire.write(0x00);
+      if (Wire.endTransmission(false) != 0) {
+        Serial.println("RTC read error: ctrl/status write failed");
+        last_press_ms = now_ms;
+        last_button = state;
+        return;
+      }
+      const uint8_t cs_expected = 2;
+      const uint8_t cs_got = Wire.requestFrom(addr, cs_expected);
+      if (cs_got != cs_expected) {
+        Serial.println("RTC read error: ctrl/status short read");
+        last_press_ms = now_ms;
+        last_button = state;
+        return;
+      }
+      const uint8_t ctrl1 = Wire.read();
+      const uint8_t ctrl2 = Wire.read();
+      Serial.print("BM8563 CTRL1=0x");
+      if (ctrl1 < 16) {
+        Serial.print('0');
+      }
+      Serial.print(ctrl1, HEX);
+      Serial.print(" CTRL2=0x");
+      if (ctrl2 < 16) {
+        Serial.print('0');
+      }
+      Serial.println(ctrl2, HEX);
       last_press_ms = now_ms;
     }
   }
