@@ -108,7 +108,8 @@ build_flags =
 
 ## I2C probe mode
 
-Press the test button to scan the I2C bus, then read and print the RTC time.
+Press the test button to scan the I2C bus, list detected devices, then probe the first device as a BM8563 RTC.
+It prints a check line, the decoded time, and the CTRL1/CTRL2 register values.
 
 Pin configuration example:
 ```ini
