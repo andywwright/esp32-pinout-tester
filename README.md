@@ -108,7 +108,7 @@ build_flags =
 
 ## I2C probe mode
 
-Scans the I2C bus once per second and prints detected addresses.
+Press the test button to scan the I2C bus, then read and print the RTC time.
 
 Pin configuration example:
 ```ini
@@ -117,6 +117,7 @@ build_flags =
   -DI2C_PROBE
   -DI2C_SDA=41
   -DI2C_SCL=42
+  -DTEST_BUTTON_PIN=17
 ```
 
 ## Board environments

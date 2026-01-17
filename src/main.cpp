@@ -169,8 +169,12 @@ static const uint8_t kPinsLevel = PINS_LEVEL;
 #if !defined(I2C_SDA) || !defined(I2C_SCL)
 #error "Define I2C_SDA and I2C_SCL in platformio.ini build_flags."
 #endif
+#if !defined(TEST_BUTTON_PIN)
+#error "Define TEST_BUTTON_PIN in platformio.ini build_flags."
+#endif
 static const uint8_t kI2cSdaPin = I2C_SDA;
 static const uint8_t kI2cSclPin = I2C_SCL;
+static const uint8_t kI2cButtonPin = TEST_BUTTON_PIN;
 #endif
 
 static void AddStep(MorseSequence& seq, uint8_t level, uint16_t duration) {
@@ -249,6 +253,10 @@ void setup() {
 #if defined(I2C_PROBE)
   Wire.begin(kI2cSdaPin, kI2cSclPin);
   Wire.setClock(100000);
+#if defined(BOARD_ESP32S3)
+  Serial.println("I2C probe ready; press button to scan.");
+#endif
+  pinMode(kI2cButtonPin, INPUT_PULLUP);
 #if defined(BOARD_ESP32S3)
   Serial.print("I2C probe on SDA=");
   Serial.print(kI2cSdaPin);
@@ -402,85 +410,92 @@ void loop() {
   auto bcd_to_dec = [](uint8_t v) -> uint8_t {
     return static_cast<uint8_t>((v >> 4) * 10 + (v & 0x0F));
   };
-  int first_addr = -1;
-  bool found = false;
-  for (uint8_t addr = 0x08; addr <= 0x77; addr++) {
-    Wire.beginTransmission(addr);
-    if (Wire.endTransmission() == 0) {
-      Serial.print("I2C device at 0x");
-      if (addr < 16) {
+  static int last_button = HIGH;
+  static unsigned long last_press_ms = 0;
+  const unsigned long now_ms = millis();
+  const int state = digitalRead(kI2cButtonPin);
+
+  if (state == LOW && last_button == HIGH) {
+    if (now_ms - last_press_ms >= 50) {
+      int first_addr = -1;
+      bool found = false;
+      for (uint8_t addr = 0x08; addr <= 0x77; addr++) {
+        Wire.beginTransmission(addr);
+        if (Wire.endTransmission() == 0) {
+          Serial.print("I2C device at 0x");
+          if (addr < 16) {
+            Serial.print('0');
+          }
+          Serial.println(addr, HEX);
+          if (!found) {
+            first_addr = addr;
+          }
+          found = true;
+        }
+      }
+      if (!found) {
+        Serial.println("I2C: no devices");
+        last_press_ms = now_ms;
+        last_button = state;
+        return;
+      }
+
+      const uint8_t addr = static_cast<uint8_t>(first_addr);
+      Wire.beginTransmission(addr);
+      Wire.write(0x02);
+      if (Wire.endTransmission(false) != 0) {
+        Serial.println("RTC read error: write failed");
+        last_press_ms = now_ms;
+        last_button = state;
+        return;
+      }
+      const uint8_t expected = 7;
+      const uint8_t got = Wire.requestFrom(addr, expected);
+      if (got != expected) {
+        Serial.println("RTC read error: short read");
+        last_press_ms = now_ms;
+        last_button = state;
+        return;
+      }
+      const uint8_t sec = bcd_to_dec(Wire.read() & 0x7F);
+      const uint8_t min = bcd_to_dec(Wire.read() & 0x7F);
+      const uint8_t hour = bcd_to_dec(Wire.read() & 0x3F);
+      const uint8_t day = bcd_to_dec(Wire.read() & 0x3F);
+      Wire.read(); // weekday
+      const uint8_t month = bcd_to_dec(Wire.read() & 0x1F);
+      const uint16_t year = static_cast<uint16_t>(2000 + bcd_to_dec(Wire.read()));
+
+      Serial.print("RTC time: ");
+      Serial.print(year);
+      Serial.print("-");
+      if (month < 10) {
         Serial.print('0');
       }
-      Serial.println(addr, HEX);
-      if (!found) {
-        first_addr = addr;
+      Serial.print(month);
+      Serial.print("-");
+      if (day < 10) {
+        Serial.print('0');
       }
-      found = true;
+      Serial.print(day);
+      Serial.print(" ");
+      if (hour < 10) {
+        Serial.print('0');
+      }
+      Serial.print(hour);
+      Serial.print(":");
+      if (min < 10) {
+        Serial.print('0');
+      }
+      Serial.print(min);
+      Serial.print(":");
+      if (sec < 10) {
+        Serial.print('0');
+      }
+      Serial.println(sec);
+      last_press_ms = now_ms;
     }
   }
-  if (!found) {
-    Serial.println("I2C: no devices");
-    while (true) {
-      delay(1000);
-    }
-  }
-
-  const uint8_t addr = static_cast<uint8_t>(first_addr);
-  Wire.beginTransmission(addr);
-  Wire.write(0x02);
-  if (Wire.endTransmission(false) != 0) {
-    Serial.println("RTC read error: write failed");
-    while (true) {
-      delay(1000);
-    }
-  }
-  const uint8_t expected = 7;
-  const uint8_t got = Wire.requestFrom(addr, expected);
-  if (got != expected) {
-    Serial.println("RTC read error: short read");
-    while (true) {
-      delay(1000);
-    }
-  }
-  const uint8_t sec = bcd_to_dec(Wire.read() & 0x7F);
-  const uint8_t min = bcd_to_dec(Wire.read() & 0x7F);
-  const uint8_t hour = bcd_to_dec(Wire.read() & 0x3F);
-  const uint8_t day = bcd_to_dec(Wire.read() & 0x3F);
-  Wire.read(); // weekday
-  const uint8_t month = bcd_to_dec(Wire.read() & 0x1F);
-  const uint16_t year = static_cast<uint16_t>(2000 + bcd_to_dec(Wire.read()));
-
-  Serial.print("RTC time: ");
-  Serial.print(year);
-  Serial.print("-");
-  if (month < 10) {
-    Serial.print('0');
-  }
-  Serial.print(month);
-  Serial.print("-");
-  if (day < 10) {
-    Serial.print('0');
-  }
-  Serial.print(day);
-  Serial.print(" ");
-  if (hour < 10) {
-    Serial.print('0');
-  }
-  Serial.print(hour);
-  Serial.print(":");
-  if (min < 10) {
-    Serial.print('0');
-  }
-  Serial.print(min);
-  Serial.print(":");
-  if (sec < 10) {
-    Serial.print('0');
-  }
-  Serial.println(sec);
-
-  while (true) {
-    delay(1000);
-  }
+  last_button = state;
   return;
 #endif
 #if defined(MORSE)
