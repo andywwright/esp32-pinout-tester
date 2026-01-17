@@ -15,12 +15,16 @@ static const uint8_t kGpios[] = {
 #elif defined(BOARD_ESP32S3)
 // ESP32-S3 safe GPIOs (avoid strapping, USB, and UART0 pins by default).
 // Adjust this list for your specific S3 module as needed.
+// static const uint8_t kGpios[] = {
+//     4, 5, 6, 7, 8, 9, 10, 11,
+//     12, 13, 14, 15, 16, 18,
+//     21,
+//     35, 36, 37, 38, 39, 41, 42,
+//     40
+// };
+
 static const uint8_t kGpios[] = {
-    4, 5, 6, 7, 8, 9, 10, 11,
-    12, 13, 14, 15, 16, 18,
-    21,
-    35, 36, 37, 38, 39, 41, 42,
-    40
+    40, 39, 1, 2, 3, 33, 34, 43, 44, 45, 46
 };
 #else
 #error "Define a BOARD_* build flag to select the GPIO list."
